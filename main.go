@@ -16,11 +16,13 @@ package main
 
 import (
 	// "github.com/anydemo/newdb/cmd"
-	"fmt"
-	"log"
 
+	"os"
+
+	hparser "github.com/anydemo/newdb/parser"
 	"github.com/pingcap/parser"
 	_ "github.com/pingcap/tidb/types/parser_driver"
+	log "github.com/sirupsen/logrus"
 	bolt "go.etcd.io/bbolt"
 )
 
@@ -38,13 +40,25 @@ func newDB() {
 }
 
 func sqlParser() {
-	p := parser.New()
+	// var sql = "SELECT /*+ TIDB_SMJ(employees) */ emp_no, first_name, last_name " +
+	// 	"FROM employees USE INDEX (last_name) " +
+	// 	"where last_name='Aamodt' and gender='F' and birth_date > '1960-01-01'"
 
-	// 2. Parse a text SQL into AST([]ast.StmtNode).
-	stmtNodes, _, err := p.Parse("select * from tbl where id = 1", "", "")
+	var sql = `select * from tbl where id = 1`
 
-	// 3. Use AST to do cool things.
-	fmt.Printf("%#v %v", stmtNodes[0], err)
+	var parser = parser.New()
+	stmtNodes, warns, err := parser.Parse(sql, "", "")
+	if err != nil {
+		log.Printf("parse error:\n%v\n%s", err, sql)
+		os.Exit(2)
+	}
+	for _, warn := range warns {
+		log.Printf("warn: %v", warn)
+	}
+	v := hparser.WalkVisitor{}
+	for _, stmtNode := range stmtNodes {
+		stmtNode.Accept(&v)
+	}
 }
 
 func main() {
