@@ -12,39 +12,49 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package newdb
 
 import (
+	"testing"
 	// "github.com/anydemo/newdb/cmd"
-
+	"fmt"
 	"os"
 
-	hparser "github.com/anydemo/newdb/parser"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/pingcap/parser"
+	"github.com/pingcap/parser/ast"
 	_ "github.com/pingcap/tidb/types/parser_driver"
 	log "github.com/sirupsen/logrus"
 	bolt "go.etcd.io/bbolt"
 )
 
-const (
-	// DbPath bolt db file path
-	DbPath = "data/db.db"
-)
+// WalkVisitor struct
+type WalkVisitor struct{}
 
-func newDB() {
-	db, err := bolt.Open(DbPath, 0666, nil)
+// Enter enter the node and visit
+func (v WalkVisitor) Enter(in ast.Node) (out ast.Node, skipChildren bool) {
+	fmt.Printf("-> %v\n", spew.Sdump(in))
+	return in, false
+}
+
+// Leave leave the node
+func (v WalkVisitor) Leave(in ast.Node) (out ast.Node, ok bool) {
+	fmt.Printf("<- %T\n", in)
+	return in, true
+}
+
+func newDB4tbolt() {
+	db, err := bolt.Open("data/testBolt.db", 0666, nil)
 	if err != nil {
 		log.Println(err)
 	}
 	defer db.Close()
 }
 
-func sqlParser() {
+func sqlParser(sql string) {
 	// var sql = "SELECT /*+ TIDB_SMJ(employees) */ emp_no, first_name, last_name " +
 	// 	"FROM employees USE INDEX (last_name) " +
 	// 	"where last_name='Aamodt' and gender='F' and birth_date > '1960-01-01'"
-
-	var sql = `select * from tbl where id = 1`
 
 	var parser = parser.New()
 	stmtNodes, warns, err := parser.Parse(sql, "", "")
@@ -55,14 +65,21 @@ func sqlParser() {
 	for _, warn := range warns {
 		log.Printf("warn: %v", warn)
 	}
-	v := hparser.WalkVisitor{}
+	v := WalkVisitor{}
 	for _, stmtNode := range stmtNodes {
 		stmtNode.Accept(&v)
 	}
 }
 
-func main() {
+func TestSimpleParsetTest(t *testing.T) {
 	// cmd.Execute()
-	newDB()
-	sqlParser()
+	newDB4tbolt()
+	// sqlParser(`select * from tbl where id = 1`)
+	// sqlParser(`drop table tdl`)
+	// sqlParser(`select * from tdl where a LIKE '_%'`)
+	// sqlParser(`insert into tld(id)values('id')`)
+	// sqlParser(`create index ID on student(ID)`)
+	// sqlParser(`select * from tlb where id = ?`)
+	var defaultPageSize = os.Getpagesize()
+	t.Log(defaultPageSize)
 }
