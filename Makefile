@@ -15,7 +15,7 @@ M = $(shell printf "\033[34;1m▶\033[0m")
 PKG ?= $(shell $(GO) list ./... | grep -v /vendor/)
 
 export GO111MODULE=on
-export GOPROXY=https://goproxy.cn
+export GOPROXY=${GOPROXY:-https://goproxy.cn}
 
 .PHONY: all
 all: fmt lint $(BIN) ; $(info $(M) building executable…) @ ## Build program binary

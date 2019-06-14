@@ -17,3 +17,5 @@ data/
 
 # vscode
 .vscode/ipch
+
+test/coverage.*

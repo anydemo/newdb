@@ -15,10 +15,9 @@
 package newdb
 
 import (
-	"testing"
-	// "github.com/anydemo/newdb/cmd"
 	"fmt"
 	"os"
+	"testing"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/pingcap/parser"
@@ -73,7 +72,7 @@ func sqlParser(sql string) {
 
 func TestSimpleParsetTest(t *testing.T) {
 	// cmd.Execute()
-	newDB4tbolt()
+	// newDB4tbolt()
 	// sqlParser(`select * from tbl where id = 1`)
 	// sqlParser(`drop table tdl`)
 	// sqlParser(`select * from tdl where a LIKE '_%'`)

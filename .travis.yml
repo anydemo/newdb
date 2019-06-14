@@ -1,0 +1,21 @@
+language: go
+
+go:
+  - '1.12'
+  - master
+
+env:
+  - GO111MODULE=on GOPROXY=https://goproxy.io
+
+matrix:
+  allow_failures:
+    - go: master
+  fast_finish: true
+
+go_import_path: github.com/reactivex/rxgo
+
+install:
+  - echo 'install'
+
+script:
+  - make test-verbose test-race test-coverage test
