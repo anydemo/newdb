@@ -7,11 +7,17 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+
+	"github.com/sirupsen/logrus"
 )
 
 var (
-	// IntType type of int
-	IntType = IntField{}.Type()
+	log = logrus.New()
+
+	// IntType enum of Type int
+	IntType = &Type{Name: reflect.TypeOf(int64(0)).Name(), Len: Sizeof(int64(0))}
+	// StringType enum of Type string
+	StringType = &Type{Name: reflect.TypeOf("").Name(), Len: 16}
 )
 
 // Iterator can iterate
@@ -20,35 +26,40 @@ type Iterator interface {
 	Next() interface{}
 }
 
+// Type type of fields
+type Type struct {
+	Name string
+	Len  uintptr
+}
+
+func (t Type) String() string {
+	return fmt.Sprintf("%v(%v)", t.Name, t.Len)
+}
+
 // Field identify one filed like int 1
 type Field interface {
 	fmt.Stringer
 	encoding.BinaryMarshaler
 	encoding.BinaryUnmarshaler
-	Len() uintptr
-	Type() reflect.Type
+	Type() *Type
 }
 
 // IntField int filed
 type IntField struct {
-	Val int64
+	Val      int64
+	TypeReal *Type
 }
 
 var _ Field = (*IntField)(nil)
 
 // NewIntField constructor of IntField
 func NewIntField(val int64) Field {
-	return &IntField{Val: val}
-}
-
-// Len the len of int field
-func (i IntField) Len() uintptr {
-	return Sizeof(i.Val)
+	return &IntField{Val: val, TypeReal: IntType}
 }
 
 // Type the type of int
-func (i IntField) Type() reflect.Type {
-	return reflect.TypeOf(i.Val)
+func (i IntField) Type() *Type {
+	return i.TypeReal
 }
 
 // String the readable IntField
@@ -58,7 +69,7 @@ func (i IntField) String() string {
 
 // MarshalBinary implement encoding.BinaryMarshaler
 func (i IntField) MarshalBinary() (data []byte, err error) {
-	data = make([]byte, i.Len())
+	data = make([]byte, i.TypeReal.Len)
 	buffer := bytes.NewBuffer(data)
 	buffer.Reset()
 	err = binary.Write(buffer, binary.LittleEndian, i.Val)
@@ -71,26 +82,36 @@ func (i *IntField) UnmarshalBinary(data []byte) error {
 	return binary.Read(reader, DefaultOrder, &i.Val)
 }
 
-type tdItem struct {
-	Type reflect.Type
+// TdItem tuple desc item
+type TdItem struct {
+	Type *Type
 	Name string
 }
 
-func (ti tdItem) String() string {
+func (ti TdItem) String() string {
 	return fmt.Sprintf("%v(%v)", ti.Name, ti.Type.String())
 }
 
 // TupleDesc the tuple descrition
 type TupleDesc struct {
-	tdItems []tdItem
+	TdItems []TdItem
 }
 
 func (td TupleDesc) String() string {
 	var inn []string
-	for _, it := range td.tdItems {
+	for _, it := range td.TdItems {
 		inn = append(inn, it.String())
 	}
 	return strings.Join(inn, ",")
+}
+
+// Size get size of fields
+func (td TupleDesc) Size() int {
+	var ret uintptr
+	for _, item := range td.TdItems {
+		ret += item.Type.Len
+	}
+	return int(ret)
 }
 
 // Tuple one record
@@ -105,28 +126,4 @@ func (tp Tuple) String() string {
 		cols = append(cols, f.String())
 	}
 	return strings.Join(cols, "\t")
-}
-
-// PageID page id
-type PageID interface{}
-
-//Page page
-type Page interface{}
-
-// Tx transaction
-type Tx interface{}
-
-// DBFile The interface for database files on disk.
-// Each table is represented by a single DBFile.
-// DbFiles can fetch pages and iterate through tuples.
-// Each file has a unique id used to store metadata about the table in the Catalog.
-// DbFiles are generally accessed through the buffer pool, rather than directly by operators.
-type DBFile interface {
-	ReadPage(pid PageID) (Page, error)
-	WritePage(p Page) error
-
-	InsertTuple(Tx, Tuple) ([]Tuple, error)
-	DeleteTuple(Tx, Tuple) ([]Tuple, error)
-	GetID() int
-	GetTupleDesc() TupleDesc
 }

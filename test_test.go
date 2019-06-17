@@ -23,7 +23,6 @@ import (
 	"github.com/pingcap/parser"
 	"github.com/pingcap/parser/ast"
 	_ "github.com/pingcap/tidb/types/parser_driver"
-	log "github.com/sirupsen/logrus"
 	bolt "go.etcd.io/bbolt"
 )
 

@@ -8,11 +8,11 @@ import (
 )
 
 func TestIntField_String(t *testing.T) {
-	fields := []Field{&IntField{Val: 1}, &IntField{Val: 3}}
+	fields := []Field{&IntField{Val: 1, TypeReal: IntType}, &IntField{Val: 3, TypeReal: IntType}}
 	intType := IntType
-	assert.Equal(t, uintptr(8), fields[0].Len())
+	assert.Equal(t, uintptr(8), fields[0].Type().Len)
 	td := TupleDesc{
-		tdItems: []tdItem{tdItem{Name: "a", Type: intType}, tdItem{Name: "b", Type: intType}},
+		TdItems: []TdItem{TdItem{Name: "a", Type: intType}, TdItem{Name: "b", Type: intType}},
 	}
 	tp := Tuple{
 		Fields: fields,

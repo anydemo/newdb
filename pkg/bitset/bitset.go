@@ -1,4 +1,4 @@
-package newdb
+package bitset
 
 import "fmt"
 
