@@ -12,9 +12,10 @@ matrix:
     - go: master
   fast_finish: true
 
-go_import_path: github.com/reactivex/rxgo
+go_import_path: github.com/anydemo/newdb
 
 install:
+  - mkdir data
   - echo 'install'
 
 script:

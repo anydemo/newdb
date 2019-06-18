@@ -14,7 +14,7 @@ var (
 // PageID page id
 type PageID interface {
 	PageNum() int
-	TableID() int
+	TableID() string
 }
 
 //Page page
@@ -46,12 +46,14 @@ var _ PageID = (*HeapPageID)(nil)
 
 // HeapPageID HeapPageID
 type HeapPageID struct {
-	TID  int
+	// TID TableID
+	TID string
+	// PNum PageNum
 	PNum int
 }
 
 // TableID table ID
-func (hid HeapPageID) TableID() int {
+func (hid HeapPageID) TableID() string {
 	return hid.TID
 }
 
@@ -61,7 +63,7 @@ func (hid HeapPageID) PageNum() int {
 }
 
 // NewHeapPageID new HeapPageID
-func NewHeapPageID(tID, pn int) PageID {
+func NewHeapPageID(tID string, pn int) PageID {
 	return &HeapPageID{TID: tID, PNum: pn}
 }
 
@@ -71,6 +73,14 @@ var _ DBFile = (*HeapFile)(nil)
 type HeapFile struct {
 	File *os.File
 	TD   *TupleDesc
+}
+
+// NewHeapFile new HeapFile
+func NewHeapFile(file *os.File, td *TupleDesc) *HeapFile {
+	return &HeapFile{
+		File: file,
+		TD:   td,
+	}
 }
 
 // ID int
@@ -115,7 +125,8 @@ type HeapPage struct {
 }
 
 // NewHeapPage new HeapPage
-func NewHeapPage(pid *HeapPageID, data []byte) *HeapPage {
+func NewHeapPage(pid PageID, data []byte) *HeapPage {
+	// TODO: implement here
 	panic("not implemented")
 }
 
