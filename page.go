@@ -68,7 +68,7 @@ func (hid HeapPageID) PageNum() int {
 }
 
 // NewHeapPageID new HeapPageID
-func NewHeapPageID(tID string, pn int) PageID {
+func NewHeapPageID(tID string, pn int) *HeapPageID {
 	return &HeapPageID{TID: tID, PNum: pn}
 }
 
@@ -130,9 +130,10 @@ type HeapPage struct {
 }
 
 // NewHeapPage new HeapPage
-func NewHeapPage(pid PageID, data []byte) (*HeapPage, error) {
+func NewHeapPage(pid *HeapPageID, data []byte) (*HeapPage, error) {
 	ret := HeapPage{}
 	ret.TD = DB.Catalog.GetTableByID(pid.TableID()).TupleDesc()
+	ret.PID = pid
 
 	bufReader := bytes.NewReader(data)
 	ret.Head = make([]byte, ret.HeaderSize())

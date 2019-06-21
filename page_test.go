@@ -1,38 +1,14 @@
 package newdb
 
 import (
-	"os"
-	"strings"
 	"testing"
 
 	"github.com/davecgh/go-spew/spew"
-
-	"github.com/stretchr/testify/require"
-
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-func init() {
-	tmpfile := "data/a.db"
-	_, err := os.Create(tmpfile)
-	if err != nil {
-		log.WithError(err).WithField("name", "page_test_init")
-	}
-	var schema = strings.NewReader("[{\"Filename\":\"data/a.db\",\"TD\":[{\"Name\":\"name1\",\"Type\":\"int\"}]}]")
-	DB.Catalog.LoadSchema(schema)
-}
-
-func NumOfNotNilPage(page *HeapPage) (ret int) {
-	for _, p := range page.Tuples {
-		if p != nil {
-			ret++
-		}
-	}
-	return
-}
-
 func TestNewHeapPage(t *testing.T) {
-	tableID := "20ccb2e256cc729496851f0c3f4f597324cb20b9"
 	dbfile := DB.Catalog.TableID2DBFile[tableID]
 	assert.Equal(t, &TupleDesc{TdItems: []TdItem{TdItem{Name: "name1", Type: IntType}}}, dbfile.TupleDesc())
 
