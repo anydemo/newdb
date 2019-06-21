@@ -100,7 +100,25 @@ func (hf HeapFile) ID() string {
 
 // ReadPage read one page
 func (hf HeapFile) ReadPage(pid PageID) (Page, error) {
-	panic("not implemented")
+	seek, err := hf.File.Seek(int64(pid.PageNum()*PageSize), 0)
+	if err != nil {
+		return nil, err
+	}
+	buf := make([]byte, PageSize)
+	n, err := hf.File.Read(buf)
+	if err != nil {
+		return nil, err
+	}
+	hfLog.WithField("op", "read_page").WithField("seek", seek).WithField("read_len", n).Infof("read page from HeapFile")
+	heapPID, ok := pid.(*HeapPageID)
+	if !ok {
+		return nil, fmt.Errorf("pid is not HeapPageID")
+	}
+	page, err := NewHeapPage(heapPID, buf)
+	if err != nil {
+		return nil, err
+	}
+	return page, err
 }
 
 // WritePage write one page

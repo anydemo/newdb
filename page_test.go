@@ -44,4 +44,8 @@ func TestHeapFile_WritePage(t *testing.T) {
 	assert.NoError(t, err, "new HeapPage err")
 	err = heapFile.WritePage(page)
 	assert.NoError(t, err, "write page to file")
+
+	pageRead, err := heapFile.ReadPage(page.PageID())
+	assert.NoError(t, err)
+	assert.Equal(t, page, pageRead)
 }

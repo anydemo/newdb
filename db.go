@@ -14,7 +14,8 @@ var (
 	// DB singleton db
 	DB = NewDatabase()
 
-	dbL = logrus.New().WithField("name", "db")
+	log = logrus.New()
+	dbL = log.WithField("name", "db")
 )
 
 // Database singleton struct

@@ -8,12 +8,9 @@ import (
 	"io"
 	"reflect"
 	"strings"
-
-	"github.com/sirupsen/logrus"
 )
 
 var (
-	log = logrus.New()
 
 	// IntType enum of Type int
 	IntType = &Type{Name: reflect.TypeOf(int64(0)).Name(), Len: Sizeof(int64(0))}
