@@ -34,7 +34,8 @@ func TestCatalog_MarshalUnmarshalSchema(t *testing.T) {
 	assert.NoError(t, err, "open file must no error")
 	buf, err = ioutil.ReadAll(f)
 	assert.NoError(t, err, "readall must no err")
-	json.Unmarshal(buf, &result)
+	err = json.Unmarshal(buf, &result)
+	assert.NoError(t, err, "unmarshal json must no err")
 	assert.Equal(t, schema, result, "marshal and unmarshal should equal")
 }
 

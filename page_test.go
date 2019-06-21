@@ -25,6 +25,7 @@ func TestNewHeapPage(t *testing.T) {
 	assert.Equal(t, []byte{0x8, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}, tpBuf)
 	copy(emptyPage[page.HeaderSize():page.HeaderSize()+tp.TD.Size()], tpBuf)
 	page, err = NewHeapPage(NewHeapPageID(singleFieldTableID, 1), emptyPage)
+	require.NoError(t, err, "new HeapPage has err")
 	assert.NotNil(t, page.TupleDesc())
 	assert.Equal(t, true, page.Bitset().Get(0), "the first byte of head is 0")
 	assert.Equal(t, false, page.Bitset().Get(1), "the second bit of head is 0")

@@ -14,9 +14,11 @@ type TxID struct {
 
 // NewTxID new one *TxID
 func NewTxID() *TxID {
-	return &TxID{
+	ret := &TxID{
 		ID: atomic.AddUint64(&txIDPool, 1),
 	}
+	txL.WithField("tx_id", ret).Infof("start tx")
+	return ret
 }
 
 // Tx transaction

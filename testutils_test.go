@@ -12,6 +12,7 @@ import (
 
 var (
 	singleFieldTableID = "20ccb2e256cc729496851f0c3f4f597324cb20b9"
+	testLog            = log.WithField("name", "test")
 )
 
 func init() {
@@ -21,7 +22,11 @@ func init() {
 		log.WithError(err).WithField("name", "page_test_init")
 	}
 	var schema = strings.NewReader("[{\"Filename\":\"data/a.db\",\"TD\":[{\"Name\":\"name1\",\"Type\":\"int\"}]}]")
-	DB.Catalog.LoadSchema(schema)
+	err = DB.Catalog.LoadSchema(schema)
+	if err != nil {
+		testLog.WithError(err).Error("init test utils, LoadSchema return err")
+		panic("has err with loadSchema")
+	}
 }
 
 func NumOfNotNilPage(page *HeapPage) (ret int) {
@@ -43,8 +48,7 @@ func GeneratePageBytes(tupleNum int) ([]byte, error) {
 	for i := 0; i < tupleNum; i++ {
 		bs.SetBool(uint(i), true)
 	}
-	var n int
-	n = copy(emptyPage, []byte(bs))
+	var n = copy(emptyPage, []byte(bs))
 	for i := 0; i < tupleNum; i++ {
 		tp := &Tuple{TD: page.TupleDesc(), Fields: []Field{NewIntField(int64(i))}}
 		tpBuf, err := tp.MarshalBinary()

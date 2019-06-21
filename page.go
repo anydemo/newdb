@@ -255,6 +255,7 @@ func (hp HeapPage) readNextTuple(r io.Reader, slotID int) (*Tuple, error) {
 		}
 		if n != hp.TD.Size() {
 			err = fmt.Errorf("read size want: %v, get: %v", hp.TD.Size(), n)
+			return nil, err
 		}
 		assertEqual(n, hp.TD.Size())
 		return nil, nil
@@ -274,8 +275,7 @@ func (hp HeapPage) readNextTuple(r io.Reader, slotID int) (*Tuple, error) {
 // MarshalBinary implement encoding.BinaryMarshaler
 func (hp HeapPage) MarshalBinary() (data []byte, err error) {
 	data = make([]byte, PageSize)
-	var n int
-	n = copy(data, []byte(hp.Head))
+	var n = copy(data, []byte(hp.Head))
 	tupleSize := hp.TupleDesc().Size()
 	var buf []byte
 	for index, tuple := range hp.Tuples {

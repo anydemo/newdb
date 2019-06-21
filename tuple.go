@@ -41,7 +41,10 @@ func (t Type) Parse(r io.Reader) (Field, error) {
 		err   error
 	)
 	buf := make([]byte, t.Len)
-	r.Read(buf)
+	_, err = r.Read(buf)
+	if err != nil {
+		return nil, err
+	}
 	switch t.Name {
 	case "string":
 		panic("unsupported type")

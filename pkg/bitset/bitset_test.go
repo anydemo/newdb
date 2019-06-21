@@ -19,7 +19,6 @@ func standardBitsets(numBits uint) []namedBitSet {
 
 func TestInRange(t *testing.T) {
 	tests := []struct {
-		name        string
 		bitsToSet   []bool
 		bitsToUnset []bool // must be same length as bitsToSet
 	}{
