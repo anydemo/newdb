@@ -86,7 +86,7 @@ func (c *Catalog) LoadSchema(r io.Reader) error {
 		dbL.WithError(err).Error("unmarshal err")
 	}
 	for _, cs := range schema {
-		f, err := os.Open(cs.Filename)
+		f, err := os.OpenFile(cs.Filename, os.O_RDWR, 0666)
 		if err != nil {
 			dbL.WithError(err).Error("open file error")
 		}

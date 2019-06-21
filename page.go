@@ -3,6 +3,7 @@ package newdb
 import (
 	"bytes"
 	"crypto/sha1"
+	"encoding"
 	"fmt"
 	"io"
 	"os"
@@ -23,6 +24,7 @@ type PageID interface {
 
 //Page page
 type Page interface {
+	encoding.BinaryMarshaler
 	// PageID get the PageID
 	PageID() PageID
 	// MarkDirty mark the page dirty
@@ -72,7 +74,10 @@ func NewHeapPageID(tID string, pn int) *HeapPageID {
 	return &HeapPageID{TID: tID, PNum: pn}
 }
 
-var _ DBFile = (*HeapFile)(nil)
+var (
+	_     DBFile = (*HeapFile)(nil)
+	hfLog        = log.WithField("name", "heapfile")
+)
 
 // HeapFile HeapFile
 type HeapFile struct {
@@ -99,8 +104,21 @@ func (hf HeapFile) ReadPage(pid PageID) (Page, error) {
 }
 
 // WritePage write one page
-func (hf *HeapFile) WritePage(p Page) error {
-	panic("not implemented")
+func (hf *HeapFile) WritePage(page Page) error {
+	seek, err := hf.File.Seek(int64(page.PageID().PageNum()*PageSize), 0)
+	if err != nil {
+		return err
+	}
+	buf, err := page.MarshalBinary()
+	if err != nil {
+		return err
+	}
+	n, err := hf.File.Write(buf)
+	if err != nil {
+		return err
+	}
+	hfLog.WithField("op", "write_page").WithField("seek", seek).WithField("write size", n).Infof("write page to HeapFile")
+	return err
 }
 
 // InsertTuple insert tuple to the HeapPage
@@ -216,7 +234,7 @@ func (hp HeapPage) readNextTuple(r io.Reader, slotID int) (*Tuple, error) {
 		return nil, nil
 	}
 	// else if page is used, read the Tuple
-	ret := &Tuple{}
+	ret := &Tuple{TD: hp.TupleDesc()}
 	for _, field := range hp.TD.TdItems {
 		f, err := field.Type.Parse(r)
 		if err != nil {
@@ -225,4 +243,25 @@ func (hp HeapPage) readNextTuple(r io.Reader, slotID int) (*Tuple, error) {
 		ret.Fields = append(ret.Fields, f)
 	}
 	return ret, nil
+}
+
+// MarshalBinary implement encoding.BinaryMarshaler
+func (hp HeapPage) MarshalBinary() (data []byte, err error) {
+	data = make([]byte, PageSize)
+	var n int
+	n = copy(data, []byte(hp.Head))
+	tupleSize := hp.TupleDesc().Size()
+	var buf []byte
+	for index, tuple := range hp.Tuples {
+		if hp.Bitset().Get(uint(index)) {
+			buf, err = tuple.MarshalBinary()
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			buf = make([]byte, tupleSize)
+		}
+		n += copy(data[n:], buf)
+	}
+	return
 }

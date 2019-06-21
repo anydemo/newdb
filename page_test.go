@@ -25,6 +25,7 @@ func TestNewHeapPage(t *testing.T) {
 	assert.Equal(t, []byte{0x8, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}, tpBuf)
 	copy(emptyPage[page.HeaderSize():page.HeaderSize()+tp.TD.Size()], tpBuf)
 	page, err = NewHeapPage(NewHeapPageID(tableID, 1), emptyPage)
+	assert.NotNil(t, page.TupleDesc())
 	assert.Equal(t, true, page.Bitset().Get(0), "the first byte of head is 0")
 	assert.Equal(t, false, page.Bitset().Get(1), "the second bit of head is 0")
 	assert.NotEmpty(t, page)
@@ -32,4 +33,15 @@ func TestNewHeapPage(t *testing.T) {
 	assert.Equal(t, "name1(int64(8))", page.TD.String())
 	assert.Equal(t, "int(8)", page.Tuples[0].String(), "the first tuple must eq int(8)")
 	assert.Equal(t, 1, NumOfNotNilPage(page))
+}
+
+func TestHeapFile_WritePage(t *testing.T) {
+	heapFile := DB.Catalog.GetTableByID(tableID)
+	pageBuf, err := GeneratePageBytes(3)
+	assert.NoError(t, err, "generate page []byte must no error")
+	page, err := NewHeapPage(NewHeapPageID(tableID, 0), pageBuf)
+	assert.NotNil(t, page.TupleDesc())
+	assert.NoError(t, err, "new HeapPage err")
+	err = heapFile.WritePage(page)
+	assert.NoError(t, err, "write page to file")
 }

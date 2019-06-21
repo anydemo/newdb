@@ -33,19 +33,19 @@ func NumOfNotNilPage(page *HeapPage) (ret int) {
 	return
 }
 
-func GeneratePageBytes(size int) ([]byte, error) {
+func GeneratePageBytes(tupleNum int) ([]byte, error) {
 	emptyPage := make([]byte, PageSize)
 	page, err := NewHeapPage(NewHeapPageID(tableID, 1), emptyPage)
 	if err != nil {
 		return nil, err
 	}
 	bs := bitset.NewBytes(uint(page.NumOfTuples()))
-	for i := 0; i < size; i++ {
+	for i := 0; i < tupleNum; i++ {
 		bs.SetBool(uint(i), true)
 	}
 	var n int
 	n = copy(emptyPage, []byte(bs))
-	for i := 0; i < size; i++ {
+	for i := 0; i < tupleNum; i++ {
 		tp := &Tuple{TD: page.TupleDesc(), Fields: []Field{NewIntField(int64(i))}}
 		tpBuf, err := tp.MarshalBinary()
 		if err != nil {
