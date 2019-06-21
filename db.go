@@ -2,12 +2,12 @@ package newdb
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
 
 	"github.com/sirupsen/logrus"
-	"golang.org/x/xerrors"
 )
 
 var (
@@ -33,23 +33,32 @@ func NewDatabase() *Database {
 // Catalog The Catalog keeps track of all available tables in the database and their associated schemas.
 type Catalog struct {
 	TableID2DBFile map[string]DBFile
+	Name2ID        map[string]string
 }
 
 // NewCatalog new Catalog
 func NewCatalog() *Catalog {
 	return &Catalog{
 		TableID2DBFile: make(map[string]DBFile),
+		Name2ID:        make(map[string]string),
 	}
 }
 
 // AddTable add DBFile/Table
 func (c Catalog) AddTable(file DBFile, name string) {
-	c.TableID2DBFile[name] = file
+	id := file.ID()
+	c.TableID2DBFile[id] = file
+	c.Name2ID[name] = id
 }
 
-// GetTable get DBFile/Table
-func (c Catalog) GetTable(name string) DBFile {
-	return c.TableID2DBFile[name]
+// GetTableByID get DBFile/Table by tableID
+func (c Catalog) GetTableByID(tableID string) DBFile {
+	return c.TableID2DBFile[tableID]
+}
+
+// GetTableByName get DBFile/Table by name
+func (c Catalog) GetTableByName(name string) DBFile {
+	return c.TableID2DBFile[c.Name2ID[name]]
 }
 
 // CatalogTDSchema for CatalogSchema
@@ -89,7 +98,7 @@ func (c *Catalog) LoadSchema(r io.Reader) error {
 			case "int":
 				one.Type = IntType
 			default:
-				err := xerrors.Errorf("unknown type %v", oneTDItem.Type)
+				err := fmt.Errorf("unknown type %v", oneTDItem.Type)
 				dbL.WithError(err).Error("err in Load schema from reader")
 				return err
 			}

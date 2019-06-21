@@ -1,9 +1,13 @@
 package newdb
 
 import (
+	"bytes"
 	"crypto/sha1"
 	"fmt"
+	"io"
 	"os"
+
+	"github.com/anydemo/newdb/pkg/bitset"
 )
 
 var (
@@ -24,6 +28,7 @@ type Page interface {
 	// MarkDirty mark the page dirty
 	// if TxID is nil, Mark not dirty
 	MarkDirty(*TxID)
+	TupleDesc() *TupleDesc
 }
 
 // DBFile The interface for database files on disk.
@@ -83,7 +88,7 @@ func NewHeapFile(file *os.File, td *TupleDesc) *HeapFile {
 	}
 }
 
-// ID int
+// ID string
 func (hf HeapFile) ID() string {
 	return fmt.Sprintf("%x", sha1.Sum([]byte(hf.File.Name())))
 }
@@ -120,19 +125,57 @@ type HeapPage struct {
 	PID         *HeapPageID
 	TD          *TupleDesc
 	Head        []byte
-	Tuples      []Tuple
+	Tuples      []*Tuple
 	TxMarkDirty *TxID
 }
 
 // NewHeapPage new HeapPage
-func NewHeapPage(pid PageID, data []byte) *HeapPage {
+func NewHeapPage(pid PageID, data []byte) (*HeapPage, error) {
+	ret := HeapPage{}
+	ret.TD = DB.Catalog.GetTableByID(pid.TableID()).TupleDesc()
+
+	bufReader := bytes.NewReader(data)
+	ret.Head = make([]byte, ret.HeaderSize())
+	n, err := bufReader.Read(ret.Head)
+	if err != nil {
+		err = fmt.Errorf("read header error %v", err)
+		log.WithError(err).Warnf("read header error")
+		return nil, err
+	}
+
+	if n < ret.HeaderSize() {
+		err = fmt.Errorf("read head want %v, get %v", ret.HeaderSize(), n)
+		log.WithError(err).Warnf("read head error")
+		return nil, err
+	}
 	// TODO: implement here
-	panic("not implemented")
+	ret.Tuples = make([]*Tuple, ret.NumOfTuples())
+	for i := 0; i < ret.NumOfTuples(); i++ {
+		ret.Tuples[i], err = ret.readNextTuple(bufReader, i)
+		if err != nil && err != io.EOF {
+			err = fmt.Errorf("read tuple %vth err: %v", i, err)
+			return nil, err
+		}
+		if err == io.EOF {
+			log.Debugf("read %vth tuple, and end", i)
+		}
+	}
+	return &ret, nil
+}
+
+// TupleDesc get the tuple desc
+func (hp HeapPage) TupleDesc() *TupleDesc {
+	return hp.TD
 }
 
 // PageID get pageID
 func (hp HeapPage) PageID() PageID {
 	return hp.PID
+}
+
+// Bitset get bitset
+func (hp *HeapPage) Bitset() bitset.BitSet {
+	return bitset.Bytes(hp.Head)
 }
 
 // MarkDirty mark the page dirty
@@ -155,4 +198,30 @@ func (hp HeapPage) NumOfTuples() int {
 // a page in a HeapFile with each tuple occupying tupleSize bytes
 func (hp HeapPage) HeaderSize() int {
 	return (hp.NumOfTuples() + 7) / 8
+}
+
+func (hp HeapPage) readNextTuple(r io.Reader, slotID int) (*Tuple, error) {
+	// if page not used
+	if !hp.Bitset().Get(uint(slotID)) {
+		buf := make([]byte, hp.TD.Size())
+		n, err := r.Read(buf)
+		if err != nil {
+			return nil, err
+		}
+		if n != hp.TD.Size() {
+			err = fmt.Errorf("read size want: %v, get: %v", hp.TD.Size(), n)
+		}
+		assertEqual(n, hp.TD.Size())
+		return nil, nil
+	}
+	// else if page is used, read the Tuple
+	ret := &Tuple{}
+	for _, field := range hp.TD.TdItems {
+		f, err := field.Type.Parse(r)
+		if err != nil {
+			return nil, err
+		}
+		ret.Fields = append(ret.Fields, f)
+	}
+	return ret, nil
 }

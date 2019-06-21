@@ -1,6 +1,7 @@
 package newdb
 
 import (
+	"bytes"
 	"math"
 	"testing"
 
@@ -11,7 +12,7 @@ func TestIntField_String(t *testing.T) {
 	fields := []Field{&IntField{Val: 1, TypeReal: IntType}, &IntField{Val: 3, TypeReal: IntType}}
 	intType := IntType
 	assert.Equal(t, uintptr(8), fields[0].Type().Len)
-	td := TupleDesc{
+	td := &TupleDesc{
 		TdItems: []TdItem{TdItem{Name: "a", Type: intType}, TdItem{Name: "b", Type: intType}},
 	}
 	tp := Tuple{
@@ -49,4 +50,15 @@ func TestIntField_MarshalBinary(t *testing.T) {
 		assert.Equalf(t, intField, f, "input:%v, get:%v", s, f)
 		assert.Equalf(t, s.K, f.(*IntField).Val, "input:%v, get:%v", s, f)
 	}
+}
+
+func TestType_Parse(t *testing.T) {
+	intField1 := NewIntField(1)
+	ifbuf, err := intField1.MarshalBinary()
+	assert.NoError(t, err)
+	r := bytes.NewReader(ifbuf)
+	intf1, err := IntType.Parse(r)
+	assert.NoError(t, err)
+	assert.Equal(t, intField1, intf1)
+	assert.Equal(t, "int(1)", intf1.String())
 }

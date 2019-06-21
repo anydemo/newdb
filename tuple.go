@@ -5,6 +5,7 @@ import (
 	"encoding"
 	"encoding/binary"
 	"fmt"
+	"io"
 	"reflect"
 	"strings"
 
@@ -34,6 +35,28 @@ type Type struct {
 
 func (t Type) String() string {
 	return fmt.Sprintf("%v(%v)", t.Name, t.Len)
+}
+
+// Parse parse the real Field
+func (t Type) Parse(r io.Reader) (Field, error) {
+	var (
+		field Field
+		err   error
+	)
+	buf := make([]byte, t.Len)
+	r.Read(buf)
+	switch t.Name {
+	case "string":
+		panic("unsupported type")
+	case "int64":
+		i := &IntField{TypeReal: IntType}
+		err = i.UnmarshalBinary(buf)
+		if err != nil {
+			return nil, err
+		}
+		field = i
+	}
+	return field, err
 }
 
 // Field identify one filed like int 1
@@ -117,7 +140,7 @@ func (td TupleDesc) Size() int {
 // Tuple one record
 type Tuple struct {
 	Fields []Field
-	TD     TupleDesc
+	TD     *TupleDesc
 }
 
 func (tp Tuple) String() string {
@@ -126,4 +149,17 @@ func (tp Tuple) String() string {
 		cols = append(cols, f.String())
 	}
 	return strings.Join(cols, "\t")
+}
+
+// MarshalBinary marshal tuple
+func (tp Tuple) MarshalBinary() (data []byte, err error) {
+	data = make([]byte, 0, tp.TD.Size())
+	for _, field := range tp.Fields {
+		buf, err := field.MarshalBinary()
+		if err != nil {
+			return nil, err
+		}
+		data = append(data, buf...)
+	}
+	return data, err
 }
