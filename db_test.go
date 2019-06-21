@@ -39,9 +39,6 @@ func TestCatalog_MarshalUnmarshalSchema(t *testing.T) {
 }
 
 func TestCatalog_LoadSchema(t *testing.T) {
-	tmpfile := "data/a.db"
-	os.Create(tmpfile)
-	defer os.Remove(tmpfile)
 	var schema = strings.NewReader("[{\"Filename\":\"data/a.db\",\"TD\":[{\"Name\":\"name1\",\"Type\":\"int\"}]}]")
 	var catalog = NewCatalog()
 	err := catalog.LoadSchema(schema)

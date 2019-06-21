@@ -135,9 +135,13 @@ func (td TupleDesc) Size() int {
 }
 
 // Tuple one record
+//
+// Marshal format
+// field-val1 | field-val2 |...
 type Tuple struct {
-	Fields []Field
-	TD     *TupleDesc
+	Fields   []Field
+	TD       *TupleDesc
+	RecordID *RecordID
 }
 
 func (tp Tuple) String() string {
@@ -159,4 +163,18 @@ func (tp Tuple) MarshalBinary() (data []byte, err error) {
 		data = append(data, buf...)
 	}
 	return data, err
+}
+
+// RecordID record id: PageID + TupleNum
+type RecordID struct {
+	PID      PageID
+	TupleNum int
+}
+
+// NewRecordID NewRecordID Pointer
+func NewRecordID(pid PageID, tupleNum int) *RecordID {
+	return &RecordID{
+		PID:      pid,
+		TupleNum: tupleNum,
+	}
 }

@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	tableID = "20ccb2e256cc729496851f0c3f4f597324cb20b9"
+	singleFieldTableID = "20ccb2e256cc729496851f0c3f4f597324cb20b9"
 )
 
 func init() {
@@ -35,7 +35,7 @@ func NumOfNotNilPage(page *HeapPage) (ret int) {
 
 func GeneratePageBytes(tupleNum int) ([]byte, error) {
 	emptyPage := make([]byte, PageSize)
-	page, err := NewHeapPage(NewHeapPageID(tableID, 1), emptyPage)
+	page, err := NewHeapPage(NewHeapPageID(singleFieldTableID, 1), emptyPage)
 	if err != nil {
 		return nil, err
 	}
@@ -60,7 +60,7 @@ func Test_GeneratePageBytes(t *testing.T) {
 	buf, err := GeneratePageBytes(4)
 	assert.NoError(t, err)
 	assert.Equal(t, byte(0xf), buf[0])
-	page, err := NewHeapPage(NewHeapPageID(tableID, 1), buf)
+	page, err := NewHeapPage(NewHeapPageID(singleFieldTableID, 1), buf)
 	assert.NoError(t, err)
 	for i, tuple := range page.Tuples[:4] {
 		assert.Equal(t, fmt.Sprintf("int(%v)", i), tuple.String())

@@ -80,6 +80,10 @@ var (
 )
 
 // HeapFile HeapFile
+//
+// file format:
+//
+// [Page][Page][Page][Page]...
 type HeapFile struct {
 	File *os.File
 	TD   *TupleDesc
@@ -157,6 +161,10 @@ func (hf HeapFile) TupleDesc() *TupleDesc {
 var _ Page = (*HeapPage)(nil)
 
 // HeapPage heap page
+//
+// file format:
+//
+// | header bit set | [Tuple][Tuple][Tuple][Tuple] |
 type HeapPage struct {
 	PID         *HeapPageID
 	TD          *TupleDesc
@@ -252,7 +260,7 @@ func (hp HeapPage) readNextTuple(r io.Reader, slotID int) (*Tuple, error) {
 		return nil, nil
 	}
 	// else if page is used, read the Tuple
-	ret := &Tuple{TD: hp.TupleDesc()}
+	ret := &Tuple{TD: hp.TupleDesc(), RecordID: NewRecordID(hp.PageID(), slotID)}
 	for _, field := range hp.TD.TdItems {
 		f, err := field.Type.Parse(r)
 		if err != nil {

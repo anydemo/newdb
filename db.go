@@ -54,7 +54,7 @@ func (c Catalog) AddTable(file DBFile, name string) {
 
 // GetTableByID get DBFile/Table by tableID
 func (c Catalog) GetTableByID(tableID string) DBFile {
-	return c.TableID2DBFile[tableID]
+	return c.TableID2DBFile[singleFieldTableID]
 }
 
 // GetTableByName get DBFile/Table by name
