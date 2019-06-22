@@ -1,4 +1,4 @@
-# newdb
+# newdb [![Build Status](https://travis-ci.org/anydemo/newdb.svg?branch=master)](https://travis-ci.org/anydemo/newdb)
 
 new db write by golang. Support mysql TIBD sql
 
