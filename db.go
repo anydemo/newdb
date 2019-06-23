@@ -16,18 +16,33 @@ var (
 
 	log = logrus.New()
 	dbL = log.WithField("name", "db")
+
+	// PageSize the os dependency pagesize
+	PageSize = os.Getpagesize()
 )
 
 // Database singleton struct
 type Database struct {
-	Catalog *Catalog
+	Catalog    *Catalog
+	BufferPool *BufferPool
+}
+
+// C get Catalog
+func (db *Database) C() *Catalog {
+	return db.Catalog
+}
+
+// B get BufferPool
+func (db *Database) B() *BufferPool {
+	return db.BufferPool
 }
 
 // NewDatabase return new
 func NewDatabase() *Database {
 	catalog := NewCatalog()
 	return &Database{
-		Catalog: catalog,
+		Catalog:    catalog,
+		BufferPool: NewBufferPool(),
 	}
 }
 
@@ -109,4 +124,29 @@ func (c *Catalog) LoadSchema(r io.Reader) error {
 		c.AddTable(heapFile, heapFile.ID())
 	}
 	return err
+}
+
+// BufferPool BufferPool manages the reading and writing of pages into memory from
+// disk. Access methods call into it to retrieve pages, and it fetches
+// pages from the appropriate location.
+// <p>
+// The BufferPool is also responsible for locking;  when a transaction fetches
+// a page, BufferPool checks that the transaction has the appropriate
+// locks to read/write the page.
+//
+//@Threadsafe, all fields are final
+type BufferPool struct {
+	pageSize int
+}
+
+// NewBufferPool return BufferPool
+func NewBufferPool() *BufferPool {
+	return &BufferPool{
+		pageSize: PageSize,
+	}
+}
+
+// PageSize get the os dependencied page size
+func (bp BufferPool) PageSize() int {
+	return bp.pageSize
 }

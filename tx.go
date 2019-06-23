@@ -3,8 +3,8 @@ package newdb
 import "sync/atomic"
 
 var (
-	txIDPool uint64
-	txL      = log.WithField("name", "tx")
+	atomicTxID uint64
+	txL        = log.WithField("name", "tx")
 )
 
 // TxID transaction id
@@ -15,7 +15,7 @@ type TxID struct {
 // NewTxID new one *TxID
 func NewTxID() *TxID {
 	ret := &TxID{
-		ID: atomic.AddUint64(&txIDPool, 1),
+		ID: atomic.AddUint64(&atomicTxID, 1),
 	}
 	txL.WithField("tx_id", ret).Infof("start tx")
 	return ret
@@ -32,3 +32,6 @@ func NewTx() *Tx {
 		TxID: NewTxID(),
 	}
 }
+
+// Finish clean Tx
+func (tx *Tx) Finish() {}

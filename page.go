@@ -11,11 +11,6 @@ import (
 	"github.com/anydemo/newdb/pkg/bitset"
 )
 
-var (
-	// PageSize the os dependency pagesize
-	PageSize = os.Getpagesize()
-)
-
 // PageID page id
 type PageID interface {
 	PageNum() int
@@ -44,8 +39,8 @@ type DBFile interface {
 	ReadPage(pid PageID) (Page, error)
 	WritePage(p Page) error
 
-	InsertTuple(TxID, Tuple) ([]Tuple, error)
-	DeleteTuple(TxID, Tuple) ([]Tuple, error)
+	InsertTuple(TxID, Tuple) ([]*Tuple, error)
+	DeleteTuple(TxID, Tuple) ([]*Tuple, error)
 	TupleDesc() *TupleDesc
 }
 
@@ -104,11 +99,11 @@ func (hf HeapFile) ID() string {
 
 // ReadPage read one page
 func (hf HeapFile) ReadPage(pid PageID) (Page, error) {
-	seek, err := hf.File.Seek(int64(pid.PageNum()*PageSize), 0)
+	seek, err := hf.File.Seek(int64(pid.PageNum()*DB.B().PageSize()), 0)
 	if err != nil {
 		return nil, err
 	}
-	buf := make([]byte, PageSize)
+	buf := make([]byte, DB.B().PageSize())
 	n, err := hf.File.Read(buf)
 	if err != nil {
 		return nil, err
@@ -127,7 +122,7 @@ func (hf HeapFile) ReadPage(pid PageID) (Page, error) {
 
 // WritePage write one page
 func (hf *HeapFile) WritePage(page Page) error {
-	seek, err := hf.File.Seek(int64(page.PageID().PageNum()*PageSize), 0)
+	seek, err := hf.File.Seek(int64(page.PageID().PageNum()*DB.B().PageSize()), 0)
 	if err != nil {
 		return err
 	}
@@ -144,12 +139,12 @@ func (hf *HeapFile) WritePage(page Page) error {
 }
 
 // InsertTuple insert tuple to the HeapPage
-func (hf *HeapFile) InsertTuple(TxID, Tuple) ([]Tuple, error) {
+func (hf *HeapFile) InsertTuple(TxID, Tuple) ([]*Tuple, error) {
 	panic("not implemented")
 }
 
 // DeleteTuple del tuple to the HeapPage
-func (hf *HeapFile) DeleteTuple(TxID, Tuple) ([]Tuple, error) {
+func (hf *HeapFile) DeleteTuple(TxID, Tuple) ([]*Tuple, error) {
 	panic("not implemented")
 }
 
@@ -176,7 +171,7 @@ type HeapPage struct {
 // NewHeapPage new HeapPage
 func NewHeapPage(pid *HeapPageID, data []byte) (*HeapPage, error) {
 	ret := HeapPage{}
-	ret.TD = DB.Catalog.GetTableByID(pid.TableID()).TupleDesc()
+	ret.TD = DB.C().GetTableByID(pid.TableID()).TupleDesc()
 	ret.PID = pid
 
 	bufReader := bytes.NewReader(data)
@@ -236,7 +231,7 @@ func (hp HeapPage) IsDirty() *TxID {
 
 // NumOfTuples retrieve the number of tuples on this page.
 func (hp HeapPage) NumOfTuples() int {
-	return (PageSize * 8) / (hp.TD.Size()*8 + 1)
+	return (DB.B().PageSize() * 8) / (hp.TD.Size()*8 + 1)
 }
 
 // HeaderSize computes the number of bytes in the header of
@@ -274,7 +269,7 @@ func (hp HeapPage) readNextTuple(r io.Reader, slotID int) (*Tuple, error) {
 
 // MarshalBinary implement encoding.BinaryMarshaler
 func (hp HeapPage) MarshalBinary() (data []byte, err error) {
-	data = make([]byte, PageSize)
+	data = make([]byte, DB.B().PageSize())
 	var n = copy(data, []byte(hp.Head))
 	tupleSize := hp.TupleDesc().Size()
 	var buf []byte

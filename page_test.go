@@ -9,15 +9,15 @@ import (
 )
 
 func TestNewHeapPage(t *testing.T) {
-	dbfile := DB.Catalog.TableID2DBFile[singleFieldTableID]
+	dbfile := DB.C().TableID2DBFile[singleFieldTableID]
 	assert.Equal(t, &TupleDesc{TdItems: []TdItem{TdItem{Name: "name1", Type: IntType}}}, dbfile.TupleDesc())
 
-	emptyPage := make([]byte, PageSize)
+	emptyPage := make([]byte, DB.B().PageSize())
 	page, err := NewHeapPage(NewHeapPageID(singleFieldTableID, 1), emptyPage)
 	require.NoError(t, err, "new HeapPage and parse the []byte must no error")
 	require.NotEqual(t, nil, page)
 
-	emptyPage = make([]byte, PageSize)
+	emptyPage = make([]byte, DB.B().PageSize())
 	emptyPage[0] = 0x1
 	tp := &Tuple{TD: page.TupleDesc(), Fields: []Field{NewIntField(8)}}
 	tpBuf, err := tp.MarshalBinary()
@@ -37,7 +37,7 @@ func TestNewHeapPage(t *testing.T) {
 }
 
 func TestHeapFile_WritePage(t *testing.T) {
-	heapFile := DB.Catalog.GetTableByID(singleFieldTableID)
+	heapFile := DB.C().GetTableByID(singleFieldTableID)
 	pageBuf, err := GeneratePageBytes(3)
 	assert.NoError(t, err, "generate page []byte must no error")
 	page, err := NewHeapPage(NewHeapPageID(singleFieldTableID, 0), pageBuf)

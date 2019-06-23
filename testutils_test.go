@@ -22,7 +22,7 @@ func init() {
 		log.WithError(err).WithField("name", "page_test_init")
 	}
 	var schema = strings.NewReader("[{\"Filename\":\"data/a.db\",\"TD\":[{\"Name\":\"name1\",\"Type\":\"int\"}]}]")
-	err = DB.Catalog.LoadSchema(schema)
+	err = DB.C().LoadSchema(schema)
 	if err != nil {
 		testLog.WithError(err).Error("init test utils, LoadSchema return err")
 		panic("has err with loadSchema")
@@ -39,7 +39,7 @@ func NumOfNotNilPage(page *HeapPage) (ret int) {
 }
 
 func GeneratePageBytes(tupleNum int) ([]byte, error) {
-	emptyPage := make([]byte, PageSize)
+	emptyPage := make([]byte, DB.B().PageSize())
 	page, err := NewHeapPage(NewHeapPageID(singleFieldTableID, 1), emptyPage)
 	if err != nil {
 		return nil, err
