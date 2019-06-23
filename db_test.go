@@ -52,12 +52,13 @@ func TestCatalog_LoadSchema(t *testing.T) {
 func TestBufferPool_GetPage(t *testing.T) {
 	txID := NewTxID()
 	tableID, err := RandDBFile(2)
+	require.NoError(t, err)
 	dbFile := DB.C().GetTableByID(tableID)
 	tuple := &Tuple{
 		TD:     dbFile.TupleDesc(),
 		Fields: []Field{NewIntField(1), NewIntField(3)},
 	}
-	DB.B().InsertTuple(txID, tableID, tuple)
+	err = DB.B().InsertTuple(txID, tableID, tuple)
 	require.NoError(t, err)
 	pid := NewHeapPageID(tableID, 0)
 	t.Logf("pid.ID(%v)", pid.ID())

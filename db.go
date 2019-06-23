@@ -212,7 +212,10 @@ func (bp *BufferPool) InsertTuple(txID *TxID, tableID string, tuple *Tuple) erro
 		dirty.MarkDirty(txID)
 		pid := dirty.PageID().ID()
 		if _, exists := bp.PageID2Page[pid]; !exists {
-			bp.GetPage(txID, dirty.PageID(), PermReadWrite)
+			_, err = bp.GetPage(txID, dirty.PageID(), PermReadWrite)
+			if err != nil {
+				return err
+			}
 		}
 		bp.PageID2Page[pid] = dirty
 	}

@@ -82,7 +82,7 @@ func Test_GeneratePageBytes(t *testing.T) {
 }
 
 func RandDBFile(fieldNum int) (ret string, err error) {
-	tmpfile := fmt.Sprintf("data/tmp-%v", RandString(10))
+	tmpfile := fmt.Sprintf("data/tmp-%v.data", RandString(10))
 	_, err = os.Create(tmpfile)
 	if err != nil {
 		log.WithError(err).WithField("name", "page_test_init").Errorf("create file %v", tmpfile)
@@ -92,7 +92,7 @@ func RandDBFile(fieldNum int) (ret string, err error) {
 		fields = append(fields, fmt.Sprintf("{\"name\":\"f%v\",\"type\":\"int\"}", i))
 	}
 	var schemaString = fmt.Sprintf("[{\"filename\":\"%v\",\"td\":[%v]}]", tmpfile, strings.Join(fields, ","))
-	err = ioutil.WriteFile(tmpfile+"-schema", []byte(schemaString), 0644)
+	err = ioutil.WriteFile(tmpfile+".schema.json", []byte(schemaString), 0644)
 	if err != nil {
 		return "", err
 	}

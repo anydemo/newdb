@@ -176,10 +176,18 @@ func (hf *HeapFile) InsertTuple(txID *TxID, tuple *Tuple) (ret []Page, err error
 			return nil, fmt.Errorf("assign page HeapPage error")
 		}
 		if heapPage.EmptyTupleNum() > 0 {
-			heapPage.InsertTuple(tuple)
+			err = heapPage.InsertTuple(tuple)
+			if err != nil {
+				hfLog.WithError(err).WithField("page_id", page.PageID).Warn("can not insert to this page, so insert to next page")
+				continue
+			}
 			// flush newly created page to disk
 			if int64(i) == hf.NumPagesInFile() {
-				hf.WritePage(page)
+				err = hf.WritePage(page)
+				if err != nil {
+					hfLog.WithError(err).WithField("page", page.PageID()).Error("write page error")
+					return nil, err
+				}
 				hfLog.WithField("pid", page.PageID).Infof("page full, write to disk")
 			}
 			ret = append(ret, heapPage)
