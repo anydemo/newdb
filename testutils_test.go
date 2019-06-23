@@ -27,6 +27,7 @@ func init() {
 		testLog.WithError(err).Error("init test utils, LoadSchema return err")
 		panic("has err with loadSchema")
 	}
+	testLog.Info("init test database")
 }
 
 func NumOfNotNilPage(page *HeapPage) (ret int) {
