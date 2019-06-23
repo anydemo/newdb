@@ -109,8 +109,8 @@ getu: ## go mod get -u
 
 .PHONY: clean
 clean: ; $(info $(M) cleaning…)	@ ## Cleanup everything
-	@rm -rf $(BIN)
 	@rm -rf test/tests.* test/coverage.*
+	@rm -rf data/*
 
 .PHONY: help
 help:

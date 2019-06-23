@@ -35,3 +35,25 @@ func NewTx() *Tx {
 
 // Finish clean Tx
 func (tx *Tx) Finish() {}
+
+// Permission perm
+type Permission int
+
+const (
+	// PermReadOnly 0
+	PermReadOnly Permission = iota
+	// PermReadWrite 1
+	PermReadWrite
+)
+
+func (p Permission) String() (ret string) {
+	switch p {
+	case 0:
+		ret = "READ_ONLY"
+	case 1:
+		ret = "READ_WRITE"
+	default:
+		ret = "UNSUPPORTED"
+	}
+	return
+}

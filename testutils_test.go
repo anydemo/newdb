@@ -2,12 +2,14 @@ package newdb
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"strings"
 	"testing"
 
 	"github.com/anydemo/newdb/pkg/bitset"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var (
@@ -19,10 +21,10 @@ func init() {
 	tmpfile := "data/a.db"
 	_, err := os.Create(tmpfile)
 	if err != nil {
-		log.WithError(err).WithField("name", "page_test_init")
+		log.WithError(err).WithField("name", "page_test_init").Errorf("create file %v", tmpfile)
 	}
-	var schema = strings.NewReader("[{\"Filename\":\"data/a.db\",\"TD\":[{\"Name\":\"name1\",\"Type\":\"int\"}]}]")
-	err = DB.C().LoadSchema(schema)
+	var schema = strings.NewReader(fmt.Sprintf("[{\"filename\":\"%v\",\"td\":[{\"name\":\"name1\",\"type\":\"int\"}]}]", tmpfile))
+	_, err = DB.C().LoadSchema(schema)
 	if err != nil {
 		testLog.WithError(err).Error("init test utils, LoadSchema return err")
 		panic("has err with loadSchema")
@@ -30,6 +32,7 @@ func init() {
 	testLog.Info("init test database")
 }
 
+// NumOfNotNilPage the num of exist pages
 func NumOfNotNilPage(page *HeapPage) (ret int) {
 	for _, p := range page.Tuples {
 		if p != nil {
@@ -39,11 +42,15 @@ func NumOfNotNilPage(page *HeapPage) (ret int) {
 	return
 }
 
+// GeneratePageBytes
 func GeneratePageBytes(tupleNum int) ([]byte, error) {
 	emptyPage := make([]byte, DB.B().PageSize())
 	page, err := NewHeapPage(NewHeapPageID(singleFieldTableID, 1), emptyPage)
 	if err != nil {
 		return nil, err
+	}
+	if tupleNum > page.NumOfTuples() {
+		return nil, fmt.Errorf("to large tuple num, get %v, max: %v", tupleNum, page.NumOfTuples())
 	}
 	bs := bitset.NewBytes(uint(page.NumOfTuples()))
 	for i := 0; i < tupleNum; i++ {
@@ -72,4 +79,37 @@ func Test_GeneratePageBytes(t *testing.T) {
 	}
 	assert.Equal(t, 4, NumOfNotNilPage(page))
 	assert.Nil(t, page.Tuples[4], "only generate 4 tuple, but != 4")
+}
+
+func RandDBFile(fieldNum int) (ret string, err error) {
+	tmpfile := fmt.Sprintf("data/tmp-%v", RandString(10))
+	_, err = os.Create(tmpfile)
+	if err != nil {
+		log.WithError(err).WithField("name", "page_test_init").Errorf("create file %v", tmpfile)
+	}
+	var fields []string
+	for i := 0; i < fieldNum; i++ {
+		fields = append(fields, fmt.Sprintf("{\"name\":\"f%v\",\"type\":\"int\"}", i))
+	}
+	var schemaString = fmt.Sprintf("[{\"filename\":\"%v\",\"td\":[%v]}]", tmpfile, strings.Join(fields, ","))
+	err = ioutil.WriteFile(tmpfile+"-schema", []byte(schemaString), 0644)
+	if err != nil {
+		return "", err
+	}
+	var schema = strings.NewReader(schemaString)
+	tableIDS, err := DB.C().LoadSchema(schema)
+	if err != nil {
+		testLog.WithError(err).Error("init test utils, LoadSchema return err")
+		panic("has err with loadSchema")
+	}
+	ret = tableIDS[0]
+	return
+}
+
+func TestRandDBFile(t *testing.T) {
+	tableID, err := RandDBFile(3)
+	require.NoError(t, err)
+	DBFile := DB.C().GetTableByID(tableID)
+	assert.Equal(t, tableID, DBFile.ID())
+	assert.Equal(t, &TupleDesc{TdItems: []TdItem{TdItem{Type: IntType, Name: "f0"}, TdItem{Type: IntType, Name: "f1"}, TdItem{Type: IntType, Name: "f2"}}}, DBFile.TupleDesc())
 }

@@ -17,8 +17,10 @@ var (
 	log = logrus.New()
 	dbL = log.WithField("name", "db")
 
-	// PageSize the os dependency pagesize
-	PageSize = os.Getpagesize()
+	// DefaultPageSize the os dependency pagesize
+	DefaultPageSize = os.Getpagesize()
+	// DefaultPageNum default page num
+	DefaultPageNum = 50
 )
 
 // Database singleton struct
@@ -42,7 +44,7 @@ func NewDatabase() *Database {
 	catalog := NewCatalog()
 	return &Database{
 		Catalog:    catalog,
-		BufferPool: NewBufferPool(),
+		BufferPool: NewBufferPool(-1),
 	}
 }
 
@@ -79,23 +81,24 @@ func (c Catalog) GetTableByName(name string) DBFile {
 
 // CatalogTDSchema for CatalogSchema
 type CatalogTDSchema struct {
-	Name string
-	Type string
+	Name string `json:"name,omitempty"`
+	Type string `json:"type,omitempty"`
 }
 
 // CatalogSchema for load Catalog from file
 type CatalogSchema struct {
-	Filename string
-	TD       []CatalogTDSchema
+	Filename  string            `json:"filename,omitempty"`
+	TD        []CatalogTDSchema `json:"td,omitempty"`
+	TableName string            `json:"table_name,omitempty"`
 }
 
-// LoadSchema load Catalog from file
-func (c *Catalog) LoadSchema(r io.Reader) error {
+// LoadSchema load Catalog from file, and return slice of TableID
+func (c *Catalog) LoadSchema(r io.Reader) (ret []string, err error) {
 	var schema []CatalogSchema
 	fBuf, err := ioutil.ReadAll(r)
 	if err != nil {
 		dbL.WithError(err).Error("read file err")
-		return err
+		return
 	}
 	err = json.Unmarshal(fBuf, &schema)
 	if err != nil {
@@ -116,14 +119,22 @@ func (c *Catalog) LoadSchema(r io.Reader) error {
 			default:
 				err := fmt.Errorf("unknown type %v", oneTDItem.Type)
 				dbL.WithError(err).Error("err in Load schema from reader")
-				return err
+				return nil, err
 			}
 			td.TdItems = append(td.TdItems, one)
 		}
+
 		heapFile := NewHeapFile(f, td)
-		c.AddTable(heapFile, heapFile.ID())
+		heapFileID := heapFile.ID()
+		tableName := heapFileID
+		if cs.TableName != "" {
+			tableName = heapFileID
+		}
+		c.AddTable(heapFile, tableName)
+
+		ret = append(ret, heapFileID)
 	}
-	return err
+	return
 }
 
 // BufferPool BufferPool manages the reading and writing of pages into memory from
@@ -136,17 +147,74 @@ func (c *Catalog) LoadSchema(r io.Reader) error {
 //
 //@Threadsafe, all fields are final
 type BufferPool struct {
+	maxSize  int
 	pageSize int
+	// PageID2Page k is PageID.ID()
+	PageID2Page map[string]Page
 }
 
 // NewBufferPool return BufferPool
-func NewBufferPool() *BufferPool {
+func NewBufferPool(size int) *BufferPool {
+	if size == -1 {
+		size = DefaultPageNum
+	}
 	return &BufferPool{
-		pageSize: PageSize,
+		maxSize:     size,
+		pageSize:    DefaultPageSize,
+		PageID2Page: make(map[string]Page),
 	}
 }
 
 // PageSize get the os dependencied page size
 func (bp BufferPool) PageSize() int {
 	return bp.pageSize
+}
+
+// GetPage Retrieve the specified page with the associated permissions.
+// Will acquire a lock and may block if that lock is held by another
+// transaction.
+// <p>
+// The retrieved page should be looked up in the buffer pool.  If it
+// is present, it should be returned.  If it is not present, it should
+// be added to the buffer pool and returned.  If there is insufficient
+// space in the buffer pool, a page should be evicted and the new page
+// should be added in its place.
+func (bp *BufferPool) GetPage(tx *TxID, pid PageID, perm Permission) (ret Page, err error) {
+	pidKey := pid.ID()
+	if _, exists := bp.PageID2Page[pidKey]; !exists {
+		if len(bp.PageID2Page) >= bp.maxSize {
+			err = bp.evictPage()
+			if err != nil {
+				return
+			}
+		}
+		ret, err = DB.C().GetTableByID(pid.TableID()).ReadPage(pid)
+		if err != nil {
+			return nil, err
+		}
+		bp.PageID2Page[pidKey] = ret
+	}
+	return bp.PageID2Page[pidKey], nil
+}
+
+func (bp *BufferPool) evictPage() error {
+	return nil
+}
+
+// InsertTuple insert tuple to page
+func (bp *BufferPool) InsertTuple(txID *TxID, tableID string, tuple *Tuple) error {
+	hf := DB.C().GetTableByID(tableID)
+	dirtyPages, err := hf.InsertTuple(txID, tuple)
+	if err != nil {
+		return err
+	}
+	for _, dirty := range dirtyPages {
+		dirty.MarkDirty(txID)
+		pid := dirty.PageID().ID()
+		if _, exists := bp.PageID2Page[pid]; !exists {
+			bp.GetPage(txID, dirty.PageID(), PermReadWrite)
+		}
+		bp.PageID2Page[pid] = dirty
+	}
+	return nil
 }

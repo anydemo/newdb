@@ -13,6 +13,7 @@ import (
 
 // PageID page id
 type PageID interface {
+	ID() string
 	PageNum() int
 	TableID() string
 }
@@ -39,8 +40,8 @@ type DBFile interface {
 	ReadPage(pid PageID) (Page, error)
 	WritePage(p Page) error
 
-	InsertTuple(TxID, Tuple) ([]*Tuple, error)
-	DeleteTuple(TxID, Tuple) ([]*Tuple, error)
+	InsertTuple(*TxID, *Tuple) ([]Page, error)
+	DeleteTuple(*TxID, *Tuple) ([]Page, error)
 	TupleDesc() *TupleDesc
 }
 
@@ -52,6 +53,11 @@ type HeapPageID struct {
 	TID string
 	// PNum PageNum
 	PNum int
+}
+
+// ID ${TableID}-${PageNum} identify the PageID
+func (hid HeapPageID) ID() string {
+	return fmt.Sprintf("%v-%v", hid.TID, hid.PNum)
 }
 
 // TableID table ID
@@ -134,17 +140,57 @@ func (hf *HeapFile) WritePage(page Page) error {
 	if err != nil {
 		return err
 	}
-	hfLog.WithField("op", "write_page").WithField("seek", seek).WithField("write size", n).Infof("write page to HeapFile")
+	err = hf.File.Sync()
+	hfLog.WithField("op", "write_page").WithField("seek", seek).WithField("write_size", n).Infof("write page to HeapFile")
 	return err
 }
 
+// NumPagesInFile get real num pages in file
+func (hf HeapFile) NumPagesInFile() int64 {
+	info, err := hf.File.Stat()
+	if err != nil {
+		hfLog.WithError(err).WithField("id", hf.ID())
+		return 0
+	}
+	return info.Size()
+}
+
 // InsertTuple insert tuple to the HeapPage
-func (hf *HeapFile) InsertTuple(TxID, Tuple) ([]*Tuple, error) {
-	panic("not implemented")
+func (hf *HeapFile) InsertTuple(txID *TxID, tuple *Tuple) (ret []Page, err error) {
+	for i := 0; int64(i) <= hf.NumPagesInFile(); i++ {
+		HPID := NewHeapPageID(hf.ID(), i)
+		var page Page
+		if int64(i) < hf.NumPagesInFile() {
+			page, err = DB.B().GetPage(txID, HPID, PermReadWrite)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			page, err = NewHeapPage(NewHeapPageID(hf.ID(), i), HeapPageCreateEmptyPageData())
+			if err != nil {
+				return nil, err
+			}
+		}
+		heapPage, ok := page.(*HeapPage)
+		if !ok {
+			return nil, fmt.Errorf("assign page HeapPage error")
+		}
+		if heapPage.EmptyTupleNum() > 0 {
+			heapPage.InsertTuple(tuple)
+			// flush newly created page to disk
+			if int64(i) == hf.NumPagesInFile() {
+				hf.WritePage(page)
+				hfLog.WithField("pid", page.PageID).Infof("page full, write to disk")
+			}
+			ret = append(ret, heapPage)
+			return
+		}
+	}
+	return nil, fmt.Errorf("failed to insert this tuple")
 }
 
 // DeleteTuple del tuple to the HeapPage
-func (hf *HeapFile) DeleteTuple(TxID, Tuple) ([]*Tuple, error) {
+func (hf *HeapFile) DeleteTuple(*TxID, *Tuple) ([]Page, error) {
 	panic("not implemented")
 }
 
@@ -229,6 +275,16 @@ func (hp HeapPage) IsDirty() *TxID {
 	return hp.TxMarkDirty
 }
 
+// EmptyTupleNum num of empty tuple
+func (hp HeapPage) EmptyTupleNum() (ret int) {
+	for i := 0; i < hp.NumOfTuples(); i++ {
+		if !hp.Bitset().Get(uint(i)) {
+			ret++
+		}
+	}
+	return
+}
+
 // NumOfTuples retrieve the number of tuples on this page.
 func (hp HeapPage) NumOfTuples() int {
 	return (DB.B().PageSize() * 8) / (hp.TD.Size()*8 + 1)
@@ -267,6 +323,22 @@ func (hp HeapPage) readNextTuple(r io.Reader, slotID int) (*Tuple, error) {
 	return ret, nil
 }
 
+// InsertTuple insert one tuple one the page
+func (hp *HeapPage) InsertTuple(tuple *Tuple) error {
+	if !hp.TupleDesc().Equal(tuple.TD) {
+		return fmt.Errorf("tuple desc is diff")
+	}
+	for i := 0; i < hp.NumOfTuples(); i++ {
+		if !hp.Bitset().Get(uint(i)) {
+			hp.Tuples[i] = tuple
+			tuple.RecordID = NewRecordID(hp.PID, i)
+			hp.Bitset().Set(uint(i))
+			return nil
+		}
+	}
+	return fmt.Errorf("page is full")
+}
+
 // MarshalBinary implement encoding.BinaryMarshaler
 func (hp HeapPage) MarshalBinary() (data []byte, err error) {
 	data = make([]byte, DB.B().PageSize())
@@ -285,4 +357,9 @@ func (hp HeapPage) MarshalBinary() (data []byte, err error) {
 		n += copy(data[n:], buf)
 	}
 	return
+}
+
+// HeapPageCreateEmptyPageData create emptyPageDate
+func HeapPageCreateEmptyPageData() []byte {
+	return make([]byte, DB.B().PageSize())
 }

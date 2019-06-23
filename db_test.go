@@ -25,7 +25,7 @@ func TestCatalog_MarshalUnmarshalSchema(t *testing.T) {
 
 	buf, err := json.Marshal(schema)
 	assert.NoError(t, err, "marshal schema must no err")
-	assert.Equal(t, "[{\"Filename\":\"a\",\"TD\":[{\"Name\":\"name1\",\"Type\":\"int\"}]}]", string(buf))
+	assert.Equal(t, "[{\"filename\":\"a\",\"td\":[{\"name\":\"name1\",\"type\":\"int\"}]}]", string(buf))
 	err = ioutil.WriteFile(catalogName, buf, os.ModePerm)
 	assert.NoError(t, err, "write file must no err")
 
@@ -40,9 +40,31 @@ func TestCatalog_MarshalUnmarshalSchema(t *testing.T) {
 }
 
 func TestCatalog_LoadSchema(t *testing.T) {
-	var schema = strings.NewReader("[{\"Filename\":\"data/a.db\",\"TD\":[{\"Name\":\"name1\",\"Type\":\"int\"}]}]")
+	var schema = strings.NewReader("[{\"filename\":\"data/a.db\",\"td\":[{\"name\":\"name1\",\"type\":\"int\"}]}]")
 	var catalog = NewCatalog()
-	err := catalog.LoadSchema(schema)
+	tableIDs, err := catalog.LoadSchema(schema)
 	require.NoError(t, err)
-	require.Len(t, catalog.TableID2DBFile, 1)
+	assert.Len(t, catalog.TableID2DBFile, 1)
+	assert.Equal(t, singleFieldTableID, tableIDs[0])
+	assert.Equal(t, &TupleDesc{TdItems: []TdItem{TdItem{Type: IntType, Name: "name1"}}}, DB.C().GetTableByID(tableIDs[0]).TupleDesc())
+}
+
+func TestBufferPool_GetPage(t *testing.T) {
+	txID := NewTxID()
+	tableID, err := RandDBFile(2)
+	dbFile := DB.C().GetTableByID(tableID)
+	tuple := &Tuple{
+		TD:     dbFile.TupleDesc(),
+		Fields: []Field{NewIntField(1), NewIntField(3)},
+	}
+	DB.B().InsertTuple(txID, tableID, tuple)
+	require.NoError(t, err)
+	pid := NewHeapPageID(tableID, 0)
+	t.Logf("pid.ID(%v)", pid.ID())
+	page, err := DB.B().GetPage(txID, pid, PermReadOnly)
+	require.NoError(t, err)
+	assert.NotNil(t, page)
+	assert.Equal(t, pid.ID(), page.PageID().ID())
+	heapPage := page.(*HeapPage)
+	assert.Equal(t, tuple, heapPage.Tuples[0])
 }

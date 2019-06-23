@@ -128,6 +128,12 @@ func (td TupleDesc) String() string {
 	return strings.Join(inn, ",")
 }
 
+// Equal 2 tuple desc is equal
+func (td TupleDesc) Equal(target *TupleDesc) (ret bool) {
+	// FIXME: need beauty implement
+	return td.String() != "" && td.String() == target.String()
+}
+
 // Size get size of fields
 func (td TupleDesc) Size() int {
 	var ret uintptr
