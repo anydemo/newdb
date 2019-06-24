@@ -62,3 +62,58 @@ func TestType_Parse(t *testing.T) {
 	assert.Equal(t, intField1, intf1)
 	assert.Equal(t, "int(1)", intf1.String())
 }
+
+func TestOp_String(t *testing.T) {
+	tests := []struct {
+		name    string
+		op      Op
+		wantRet string
+	}{
+		{"eq", OpEquals, "="},
+		{"not_eq", OpNotEquals, "!="},
+		{"not_supported", Op(11), "UnsupportedOp"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if gotRet := tt.op.String(); gotRet != tt.wantRet {
+				t.Errorf("Op.String() = %v, want %v", gotRet, tt.wantRet)
+			}
+		})
+	}
+}
+
+func TestIntField_Compare(t *testing.T) {
+	var tests = []struct {
+		op     Op
+		f1     Field
+		f2     Field
+		wanted bool
+	}{
+		{OpEquals, NewIntField(1), NewIntField(2), false},
+		{OpNotEquals, NewIntField(1), NewIntField(2), true},
+		{Op(999), NewIntField(1), NewIntField(2), false},
+		{Op(999), NewIntField(1), NewIntField(1), false},
+	}
+	for _, test := range tests {
+		assert.Equal(t, test.wanted, test.f1.Compare(test.op, test.f2))
+	}
+}
+
+func TestPredicate_Filter(t *testing.T) {
+	var tests = []struct {
+		name    string
+		f       int
+		op      Op
+		operand Field
+		t       *Tuple
+		wanted  bool
+	}{
+		{"eq", 0, OpEquals, NewIntField(1), &Tuple{Fields: []Field{NewIntField(1)}}, true},
+		{"not eq", 0, OpEquals, NewIntField(1), &Tuple{Fields: []Field{NewIntField(2)}}, false},
+		{"not eq", 0, OpNotEquals, NewIntField(1), &Tuple{Fields: []Field{NewIntField(2)}}, true},
+	}
+	for _, test := range tests {
+		p := Predicate{Field: test.f, Op: test.op, Operand: test.operand}
+		assert.Equal(t, test.wanted, p.Filter(test.t), test.name)
+	}
+}

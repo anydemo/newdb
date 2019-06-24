@@ -48,9 +48,9 @@ const (
 
 func (p Permission) String() (ret string) {
 	switch p {
-	case 0:
+	case PermReadOnly:
 		ret = "READ_ONLY"
-	case 1:
+	case PermReadWrite:
 		ret = "READ_WRITE"
 	default:
 		ret = "UNSUPPORTED"
