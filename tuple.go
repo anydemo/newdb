@@ -68,70 +68,6 @@ type Field interface {
 	Compare(Op, Field) bool
 }
 
-// Op enum of Op
-type Op int
-
-const (
-	// OpEquals ==
-	OpEquals Op = iota
-	// OpGreaterThan >
-	OpGreaterThan
-	// OpLessThan <
-	OpLessThan
-	// OpGreaterThanOrEq >=
-	OpGreaterThanOrEq
-	// OpLessThanOrEq <=
-	OpLessThanOrEq
-	// OpLike LIKE
-	OpLike
-	// OpNotEquals !=
-	OpNotEquals
-)
-
-func (op Op) String() (ret string) {
-	switch op {
-	case OpEquals:
-		ret = "="
-	case OpGreaterThan:
-		ret = ">"
-	case OpLessThan:
-		ret = "<"
-	case OpLessThanOrEq:
-		ret = "<="
-	case OpGreaterThanOrEq:
-		ret = ">="
-	case OpLike:
-		ret = "LIKE"
-	case OpNotEquals:
-		ret = "!="
-	default:
-		ret = "UnsupportedOp"
-	}
-	return
-}
-
-// Predicate compares tuples to a specified Field value
-type Predicate struct {
-	Field   int
-	Op      Op
-	Operand Field
-}
-
-// Filter compares the field number of t specified in the constructor to the
-// operand field specified in the constructor using the operator specific in
-// the constructor. The comparison can be made through Field's compare
-// method.
-func (p Predicate) Filter(tuple *Tuple) bool {
-	if p.Field >= len(tuple.Fields) {
-		return false
-	}
-	return tuple.Fields[p.Field].Compare(p.Op, p.Operand)
-}
-
-func (p Predicate) String() string {
-	return fmt.Sprintf("f=%v\top=%v\toperand=%v", p.Field, p.Op.String(), p.Operand.String())
-}
-
 // IntField int filed
 type IntField struct {
 	Val      int64
@@ -209,6 +145,15 @@ func (ti TdItem) String() string {
 // TupleDesc the tuple descrition
 type TupleDesc struct {
 	TdItems []TdItem
+}
+
+// NewTupleDesc create one TupleDesc
+func NewTupleDesc(types []*Type, names []string) *TupleDesc {
+	ret := &TupleDesc{}
+	for i := range types {
+		ret.TdItems = append(ret.TdItems, TdItem{Type: types[i], Name: names[i]})
+	}
+	return ret
 }
 
 func (td TupleDesc) String() string {

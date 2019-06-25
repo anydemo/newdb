@@ -113,3 +113,94 @@ func TestRandDBFile(t *testing.T) {
 	assert.Equal(t, tableID, DBFile.ID())
 	assert.Equal(t, &TupleDesc{TdItems: []TdItem{TdItem{Type: IntType, Name: "f0"}, TdItem{Type: IntType, Name: "f1"}, TdItem{Type: IntType, Name: "f2"}}}, DBFile.TupleDesc())
 }
+
+// GetTupleDesc get td with n field, type IntType, name ${name}{0, n-1}
+func GetTupleDesc(n int, name string) *TupleDesc {
+	return NewTupleDesc(GetTypes(n), GetStrings(n, name))
+}
+
+// GetTypes ret IntType, IntType ...
+func GetTypes(n int) (ret []*Type) {
+	for i := 0; i < n; i++ {
+		ret = append(ret, IntType)
+	}
+	return
+}
+
+// GetStrings return ${prefix}0, ${prefix}1 ...
+func GetStrings(n int, prefix string) (ret []string) {
+	for i := 0; i < n; i++ {
+		ret = append(ret, fmt.Sprintf("%v%v", prefix, i))
+	}
+	return
+}
+
+func TestGetTupleDesc(t *testing.T) {
+	td := GetTupleDesc(2, "demo")
+	assert.Equal(t, TdItem(TdItem{Type: IntType, Name: "demo0"}), td.TdItems[0])
+	assert.Equal(t, TdItem(TdItem{Type: IntType, Name: "demo1"}), td.TdItems[1])
+}
+
+var _ OpIterator = (*MockScan)(nil)
+
+type MockScan struct {
+	Cur, Low, High, Width int
+	Err                   error
+}
+
+func NewMockScan(low, high, width int) *MockScan {
+	return &MockScan{
+		Cur:   low,
+		Low:   low,
+		High:  high,
+		Width: width,
+	}
+}
+func (m MockScan) Error() error {
+	return m.Err
+}
+func (m *MockScan) Open() error {
+	m.Cur = m.Low
+	return nil
+}
+
+func (m *MockScan) Close() {}
+
+func (m *MockScan) HasNext() bool {
+	return m.Cur < m.High
+}
+
+func (m *MockScan) Next() *Tuple {
+	if m.Cur >= m.High {
+		m.Err = fmt.Errorf("no such element")
+		return nil
+	}
+	tup := &Tuple{
+		TD: GetTupleDesc(m.Width, "scan"),
+	}
+	for i := 0; i < m.Width; i++ {
+		tup.Fields = append(tup.Fields, NewIntField(int64(m.Cur)))
+	}
+	m.Cur++
+	return tup
+}
+
+func (m *MockScan) Rewind() error {
+	m.Close()
+	return m.Open()
+}
+
+func (m *MockScan) TupleDesc() *TupleDesc {
+	return GetTupleDesc(m.Width, "scan")
+}
+
+func TestNewMockScan(t *testing.T) {
+	scan := NewMockScan(0, 3, 2)
+	err := scan.Open()
+	assert.NoError(t, err)
+	for scan.HasNext() {
+		ele := scan.Next()
+		assert.NoError(t, err)
+		assert.NotNil(t, ele)
+	}
+}
