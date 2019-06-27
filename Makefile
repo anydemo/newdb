@@ -24,6 +24,13 @@ all: fmt lint $(BIN) ; $(info $(M) building executable…) @ ## Build program bi
 		-ldflags '-X $(PACKAGE)/cmd.Version=$(VERSION) -X $(PACKAGE)/cmd.BuildDate=$(DATE)' \
 		-o $(BIN)/$(PACKAGE) main.go
 
+.PHONY: demo
+demo: seqscan
+
+.PHONY: seqscan
+seqscan: fmt lint ; $(info $(M) run seqscan…) @ ## Run demo seqscan
+	$Q $(GO) run cmd/seqscan/main.go
+
 # Tools
 $(BIN):
 	@mkdir -p $@
