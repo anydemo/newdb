@@ -119,6 +119,13 @@ func GetTupleDesc(n int, name string) *TupleDesc {
 	return NewTupleDesc(GetTypes(n), GetStrings(n, name))
 }
 
+func GetFields(n int) (ret []Field) {
+	for i := 0; i < n; i++ {
+		ret = append(ret, NewIntField(int64(i)))
+	}
+	return
+}
+
 // GetTypes ret IntType, IntType ...
 func GetTypes(n int) (ret []*Type) {
 	for i := 0; i < n; i++ {

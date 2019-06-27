@@ -62,3 +62,27 @@ func TestRecodeID(t *testing.T) {
 	require.NotNil(t, secondTuple)
 	assert.Equal(t, NewRecordID(page.PageID(), 1), secondTuple.RecordID)
 }
+
+func TestNewHeapPageDbFileIterator(t *testing.T) {
+	dbFile := DB.C().GetTableByID(singleFieldTableID)
+	txID := NewTxID()
+	td := dbFile.TupleDesc()
+	tuple := &Tuple{
+		TD:     td,
+		Fields: []Field{NewIntField(1)},
+	}
+	err := DB.B().InsertTuple(txID, singleFieldTableID, tuple)
+	assert.NoError(t, err)
+	it := NewHeapPageDbFileIterator(txID, dbFile.(*HeapFile))
+	assert.NotEqual(t, nil, it)
+	err = it.Open()
+	assert.NoError(t, err)
+	var i int
+	for it.HasNext() {
+		i++
+		next := it.Next()
+		assert.NoError(t, it.Error())
+		assert.NotNil(t, next)
+	}
+	assert.NotEqual(t, 0, i)
+}

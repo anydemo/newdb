@@ -66,8 +66,8 @@ func (p Predicate) String() string {
 	return fmt.Sprintf("f=%v\top=%v\toperand=%v", p.Field, p.Op.String(), p.Operand.String())
 }
 
-// OpIterator operation iterator interface
-type OpIterator interface {
+// Iterator iterator
+type Iterator interface {
 	// Open opens the iterator. This must be called before any of the other methods.
 	Open() error
 	// Close Closes the iterator. When the iterator is closed, calling next(), hasNext(), or rewind() should return error
@@ -79,9 +79,15 @@ type OpIterator interface {
 	Next() *Tuple
 	// Rewind Resets the iterator to the start.
 	Rewind() error
+	// Error return err
+	Error() error
+}
+
+// OpIterator operation iterator interface
+type OpIterator interface {
+	Iterator
 	// TupleDesc Returns the TupleDesc associated with this OpIterator.
 	TupleDesc() *TupleDesc
-	Error() error
 }
 
 var _ OpIterator = (*Filter)(nil)
@@ -171,4 +177,133 @@ func (f *Filter) Rewind() error {
 // TupleDesc returns the TupleDesc associated with this OpIterator.
 func (f Filter) TupleDesc() *TupleDesc {
 	return f.Child.TupleDesc()
+}
+
+var _ OpIterator = (*TupleIterator)(nil)
+
+// TupleIterator Implements a OpIterator
+type TupleIterator struct {
+	index  int
+	Tuples []*Tuple
+	next   *Tuple
+	TD     *TupleDesc
+	Err    error
+}
+
+// NewTupleIterator new TupleIterator
+func NewTupleIterator(td *TupleDesc, tuples []*Tuple) *TupleIterator {
+	// TODO: check whether the TupleDesc is eq in tuples
+	return &TupleIterator{
+		index:  -1,
+		Tuples: tuples,
+		TD:     td,
+	}
+}
+
+// Open open
+func (it *TupleIterator) Open() error {
+	it.index = 0
+	return nil
+}
+
+// Close close
+func (it *TupleIterator) Close() {
+	it.index = -1
+	it.next = nil
+}
+
+// HasNext hasNext
+func (it *TupleIterator) HasNext() bool {
+	for ; it.index < len(it.Tuples); it.index++ {
+		if it.next = it.Tuples[it.index]; it.next != nil {
+			return true
+		}
+	}
+	return false
+}
+
+// Next next tuple; before call Next, should call HasNext
+func (it *TupleIterator) Next() (ret *Tuple) {
+	ret = it.next
+	it.index++
+	return
+}
+
+// Rewind rewind the iterator
+func (it *TupleIterator) Rewind() error {
+	it.Close()
+	return it.Open()
+}
+
+// TupleDesc TupleDesc
+func (it TupleIterator) TupleDesc() *TupleDesc {
+	return it.TD
+}
+
+// Error return error
+func (it TupleIterator) Error() error {
+	return it.Err
+}
+
+//SeqScan sequence scan
+type SeqScan struct {
+	TxID       *TxID
+	TableID    string
+	TableAlias string
+	DBFile     DBFile
+	Iter       DbFileIterator
+
+	Err error
+}
+
+// NewSeqScan new SeqScan
+func NewSeqScan(txID *TxID, tableID string, tableAlias string) *SeqScan {
+	ret := &SeqScan{
+		TxID:       txID,
+		TableID:    tableID,
+		TableAlias: tableAlias,
+		DBFile:     DB.C().GetTableByID(tableID),
+	}
+	if heapDBFile, ok := ret.DBFile.(*HeapFile); ok {
+		ret.Iter = NewHeapPageDbFileIterator(txID, heapDBFile)
+	}
+	if ret.DBFile == nil {
+		ret.Err = fmt.Errorf("can not get any DbFileIterator")
+	}
+	return ret
+}
+
+// Open open
+func (s *SeqScan) Open() error {
+	return s.Iter.Open()
+}
+
+// Close close
+func (s *SeqScan) Close() {
+	s.Iter.Close()
+}
+
+// HasNext hasNext
+func (s *SeqScan) HasNext() bool {
+	return s.Iter.HasNext()
+}
+
+// Next next tuple
+func (s *SeqScan) Next() *Tuple {
+	return s.Iter.Next()
+}
+
+// Rewind rewind the iterator
+func (s *SeqScan) Rewind() error {
+	return s.Iter.Rewind()
+}
+
+// TupleDesc TupleDesc
+func (s SeqScan) TupleDesc() *TupleDesc {
+	return s.DBFile.TupleDesc()
+}
+
+// Error return error
+func (s SeqScan) Error() error {
+	return s.Err
 }

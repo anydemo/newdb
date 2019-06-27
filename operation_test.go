@@ -78,3 +78,47 @@ func TestFilter_filterAllLessThan(t *testing.T) {
 	}
 	require.Equal(t, 1, i)
 }
+
+func TestTupleIterator_AllTest(t *testing.T) {
+	td := NewTupleDesc(GetTypes(2), GetStrings(2, "it"))
+	var tuples = make([]*Tuple, 10)
+	for i := 0; i < 10; i++ {
+		tuples[i] = &Tuple{TD: td, Fields: GetFields(2)}
+	}
+	tuples[5] = nil
+	it := NewTupleIterator(td, tuples)
+	err := it.Open()
+	assert.NoError(t, err)
+	i := 0
+	for it.HasNext() {
+		next := it.Next()
+		assert.NotNil(t, next)
+		i++
+	}
+	assert.Equal(t, 9, i)
+}
+
+func TestNewSeqScan(t *testing.T) {
+	// prepare data
+	dbFile := DB.C().GetTableByID(singleFieldTableID)
+	txID := NewTxID()
+	td := dbFile.TupleDesc()
+	tuple := &Tuple{
+		TD:     td,
+		Fields: []Field{NewIntField(1)},
+	}
+	err := DB.B().InsertTuple(txID, singleFieldTableID, tuple)
+	assert.NoError(t, err)
+
+	it := NewSeqScan(NewTxID(), singleFieldTableID, "seq_scan")
+	err = it.Open()
+	require.NoError(t, err)
+	var i int
+	for it.HasNext() {
+		i++
+		next := it.Next()
+		assert.NoError(t, it.Error())
+		assert.NotNil(t, next)
+	}
+	assert.NotEqual(t, 0, i)
+}

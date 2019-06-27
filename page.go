@@ -43,6 +43,12 @@ type DBFile interface {
 	InsertTuple(*TxID, *Tuple) ([]Page, error)
 	DeleteTuple(*TxID, *Tuple) ([]Page, error)
 	TupleDesc() *TupleDesc
+	Iterator(*TxID) DbFileIterator
+}
+
+// DbFileIterator DbFileIterator is the iterator interface that all newDB Dbfile should implement.
+type DbFileIterator interface {
+	Iterator
 }
 
 var _ PageID = (*HeapPageID)(nil)
@@ -152,7 +158,8 @@ func (hf HeapFile) NumPagesInFile() int64 {
 		hfLog.WithError(err).WithField("id", hf.ID())
 		return 0
 	}
-	return info.Size()
+	pageSize := int64(DB.B().PageSize())
+	return (info.Size() + pageSize - 1) / pageSize
 }
 
 // InsertTuple insert tuple to the HeapPage
@@ -205,6 +212,11 @@ func (hf *HeapFile) DeleteTuple(*TxID, *Tuple) ([]Page, error) {
 // TupleDesc return TupleDesc
 func (hf HeapFile) TupleDesc() *TupleDesc {
 	return hf.TD
+}
+
+// Iterator  DbFileIterator
+func (hf *HeapFile) Iterator(txID *TxID) DbFileIterator {
+	return nil
 }
 
 var _ Page = (*HeapPage)(nil)
@@ -365,6 +377,125 @@ func (hp HeapPage) MarshalBinary() (data []byte, err error) {
 		n += copy(data[n:], buf)
 	}
 	return
+}
+
+// Iterator iterator
+func (hp *HeapPage) Iterator(txID *TxID) DbFileIterator {
+	return nil
+}
+
+var _ DbFileIterator = (*HeapPageDbFileIterator)(nil)
+
+// HeapPageDbFileIterator HeapPage HeapPageDbFileIterator
+type HeapPageDbFileIterator struct {
+	curPage int
+	iter    OpIterator
+
+	txID *TxID
+	hf   *HeapFile
+	Err  error
+}
+
+// NewHeapPageDbFileIterator  new HeapPageDbFileIterator with txID
+func NewHeapPageDbFileIterator(txID *TxID, hf *HeapFile) *HeapPageDbFileIterator {
+	return &HeapPageDbFileIterator{
+		curPage: -1,
+		txID:    txID,
+		hf:      hf,
+	}
+}
+
+// Open open the iterator
+func (it *HeapPageDbFileIterator) Open() error {
+	it.curPage = 0
+	for (int64(it.curPage)) < it.hf.NumPagesInFile() {
+		if it.iter == nil {
+			page, err := DB.B().GetPage(it.txID, NewHeapPageID(it.hf.ID(), it.curPage), PermReadOnly)
+			if it.Err = err; err != nil {
+				return it.Error()
+			}
+			hp, ok := page.(*HeapPage)
+			if !ok {
+				it.Err = fmt.Errorf("page is not HeapPage: %T", page)
+				return it.Error()
+			}
+			it.iter = NewTupleIterator(page.TupleDesc(), hp.Tuples)
+			it.Err = it.iter.Open()
+			if err = it.Error(); err != nil {
+				return err
+			}
+		}
+		if !it.iter.HasNext() {
+			it.curPage++
+			it.iter = nil
+		} else {
+			return it.Error()
+		}
+	}
+	return it.Error()
+}
+
+// Close close
+func (it *HeapPageDbFileIterator) Close() {
+	it.curPage = -1
+	it.iter = nil
+}
+
+// HasNext has next
+func (it *HeapPageDbFileIterator) HasNext() bool {
+	return int64(it.curPage) < it.hf.NumPagesInFile() && it.iter != nil && it.iter.HasNext()
+}
+
+// Next next
+func (it *HeapPageDbFileIterator) Next() (ret *Tuple) {
+	if it.curPage == -1 {
+		it.Err = fmt.Errorf("no such element, iterator has closed")
+		return nil
+	}
+	if !it.iter.HasNext() {
+		it.curPage++
+		for int64(it.curPage) < it.hf.NumPagesInFile() {
+			// next page
+			page, err := DB.B().GetPage(it.txID, NewHeapPageID(it.hf.ID(), it.curPage), PermReadOnly)
+			if it.Err = err; err != nil {
+				return nil
+			}
+			hp, ok := page.(*HeapPage)
+			if !ok {
+				it.Err = fmt.Errorf("page is not HeapPage: %T", page)
+				return nil
+			}
+			it.iter = NewTupleIterator(page.TupleDesc(), hp.Tuples)
+			it.Err = it.iter.Open()
+			if err = it.Error(); err != nil {
+				return nil
+			}
+
+			if !it.iter.HasNext() {
+				it.curPage++
+			} else {
+				break
+			}
+		}
+	}
+	if it.iter.HasNext() {
+		ret = it.iter.Next()
+	}
+	if ret == nil {
+		it.Err = fmt.Errorf("no element exists")
+	}
+	return
+}
+
+// Rewind rewind the iterator
+func (it *HeapPageDbFileIterator) Rewind() error {
+	it.Close()
+	return it.Open()
+}
+
+// Error return err
+func (it HeapPageDbFileIterator) Error() error {
+	return it.Err
 }
 
 // HeapPageCreateEmptyPageData create emptyPageDate
