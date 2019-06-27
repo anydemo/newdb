@@ -18,12 +18,6 @@ var (
 	StringType = &Type{Name: reflect.TypeOf("").Name(), Len: 16}
 )
 
-// Iterator can iterate
-type Iterator interface {
-	HasNext() bool
-	Next() interface{}
-}
-
 // Type type of fields
 type Type struct {
 	Name string
